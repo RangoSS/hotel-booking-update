@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { getFirestore, collection, getDocs, setDoc, doc } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+// LandingPage.js
+import React, { useState, useEffect } from 'react';
+import { getFirestore, collection, getDocs, setDoc, doc, getDoc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 import { Modal, Button, Form } from 'react-bootstrap';
-import { FacebookShareButton, WhatsappShareButton, FacebookIcon, WhatsappIcon } from 'react-share';
-import Rating from 'react-rating-stars-component';
+import Navbar from '../../components/navbar/Navbar';
 import './landing_page.scss';
-import Navbar from "../../components/navbar/Navbar";
 
 const LandingPage = () => {
   const [hotels, setHotels] = useState([]);
@@ -16,88 +15,108 @@ const LandingPage = () => {
   const [checkInDate, setCheckInDate] = useState('');
   const [checkOutDate, setCheckOutDate] = useState('');
   const [numOfRooms, setNumOfRooms] = useState(1);
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [surname, setSurname] = useState('');
   const [phone, setPhone] = useState('');
   const [totalPrice, setTotalPrice] = useState(0);
+  const [priceType, setPriceType] = useState('night'); // 'night' or 'day' for price selection
+
   const db = getFirestore();
   const navigate = useNavigate();
-
+  const currentUser = JSON.parse(localStorage.getItem('user')); // Get user data from localStorage
+  
   useEffect(() => {
     const fetchHotels = async () => {
-      const hotelsCollection = collection(db, "hotels");
+      const hotelsCollection = collection(db, 'hotels');
       const hotelSnapshot = await getDocs(hotelsCollection);
       const hotelList = hotelSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setHotels(hotelList);
     };
-
     fetchHotels();
   }, [db]);
 
-  // Function to handle booking
-  const handleBook = (hotel) => {
-    setSelectedHotel(hotel);
-    setShowBookingModal(true);
-  };
-
-  // Function to close the booking modal
-  const handleCloseBookingModal = () => {
-    setShowBookingModal(false);
-    // Resetting form fields
-    setCheckInDate('');
-    setCheckOutDate('');
-    setNumOfRooms(1);
-    setName('');
-    setSurname('');
-    setPhone('');
-    setTotalPrice(0);
-  };
-
-  // Function to close the hotel details modal
-  const handleCloseDetailsModal = () => {
-    setShowDetailsModal(false);
-    setSelectedHotel(null);
-  };
-
-  // Function to calculate the total price
   const calculateTotalPrice = () => {
     const checkIn = new Date(checkInDate);
     const checkOut = new Date(checkOutDate);
     if (checkIn && checkOut) {
-      const timeDiff = checkOut - checkIn; // difference in milliseconds
-      const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)); // convert to days
+      if (checkOut <= checkIn) {
+        alert("Check-out date must be after check-in date.");
+        return;
+      }
+      const timeDiff = checkOut - checkIn;
+      const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
       if (selectedHotel) {
-        const price = selectedHotel.pricePerNight || 0;
+        const price = priceType === 'night' ? selectedHotel.pricePerNight : selectedHotel.pricePerDay;
         setTotalPrice(price * dayDiff * numOfRooms);
       }
     }
   };
 
-  // Function to handle booking submission
+  useEffect(() => {
+    calculateTotalPrice();
+  }, [checkInDate, checkOutDate, numOfRooms, priceType]);
+
+  const handleBook = (hotel) => {
+    setSelectedHotel(hotel);
+    setShowBookingModal(true);
+  };
+
+  const handleCloseBookingModal = () => {
+    setShowBookingModal(false);
+    setCheckInDate('');
+    setCheckOutDate('');
+    setNumOfRooms(1);
+    setUsername('');
+    setSurname('');
+    setPhone('');
+    setTotalPrice(0);
+    setPriceType('night'); // Reset price type
+  };
+
+  const handleCloseDetailsModal = () => {
+    setShowDetailsModal(false);
+    setSelectedHotel(null);
+  };
+
   const handleBookingSubmit = async () => {
-    const currentUserId = localStorage.getItem("user");
-    if (!currentUserId) {
-      alert("You need to log in to book a hotel.");
-      navigate("/login");
+    if (!currentUser) {
+      alert('You need to log in to book a hotel.');
+      navigate('/login');
       return;
     }
 
-    const bookingData = {
-      userId: currentUserId,
-      hotelId: selectedHotel.id,
-      checkInDate,
-      checkOutDate,
-      numOfRooms,
-      totalPrice,
-      name,
-      surname,
-      phone,
-    };
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const userSnap = await getDoc(userRef);
 
-    // Save to Firestore
-    await setDoc(doc(db, "bookings", `${currentUserId}_${selectedHotel.id}`), bookingData);
-    alert("Successfully booked! You can add more.");
-    handleCloseBookingModal(); // Close modal
+      if (!userSnap.exists()) {
+        alert('User details not found. Please update your profile.');
+        return;
+      }
+
+      const userData = userSnap.data();
+
+      const bookingData = {
+        userId: currentUser.uid,
+        username: userData.username || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        address: userData.address || '',
+        hotelId: selectedHotel.id,
+        checkInDate,
+        checkOutDate,
+        numOfRooms,
+        totalPrice,
+      };
+
+      await setDoc(doc(db, 'bookings', `${currentUser.uid}_${selectedHotel.id}_${Date.now()}`), bookingData);
+
+      alert('Successfully booked! You can add more.');
+      handleCloseBookingModal();
+    } catch (error) {
+      console.error('Error booking hotel:', error);
+      alert('Booking failed. Please try again.');
+    }
   };
 
   return (
@@ -136,19 +155,26 @@ const LandingPage = () => {
           <Form>
             <Form.Group controlId="checkInDate">
               <Form.Label>Check-in Date</Form.Label>
-              <Form.Control type="date" value={checkInDate} onChange={(e) => { setCheckInDate(e.target.value); calculateTotalPrice(); }} />
+              <Form.Control type="date" min={new Date().toISOString().split("T")[0]} value={checkInDate} onChange={(e) => { setCheckInDate(e.target.value); }} />
             </Form.Group>
             <Form.Group controlId="checkOutDate">
               <Form.Label>Check-out Date</Form.Label>
-              <Form.Control type="date" value={checkOutDate} onChange={(e) => { setCheckOutDate(e.target.value); calculateTotalPrice(); }} />
+              <Form.Control type="date" min={new Date().toISOString().split("T")[0]} value={checkOutDate} onChange={(e) => { setCheckOutDate(e.target.value); }} />
             </Form.Group>
             <Form.Group controlId="numOfRooms">
               <Form.Label>Number of Rooms</Form.Label>
-              <Form.Control type="number" min="1" value={numOfRooms} onChange={(e) => { setNumOfRooms(e.target.value); calculateTotalPrice(); }} />
+              <Form.Control type="number" min="1" value={numOfRooms} onChange={(e) => { setNumOfRooms(e.target.value); }} />
+            </Form.Group>
+            <Form.Group controlId="priceType">
+              <Form.Label>Select Price</Form.Label>
+              <Form.Control as="select" value={priceType} onChange={(e) => setPriceType(e.target.value)}>
+                <option value="night">Price Per Night</option>
+                <option value="day">Price Per Day</option>
+              </Form.Control>
             </Form.Group>
             <Form.Group controlId="name">
               <Form.Label>Name</Form.Label>
-              <Form.Control type="text" value={name} onChange={(e) => setName(e.target.value)} />
+              <Form.Control type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
             </Form.Group>
             <Form.Group controlId="surname">
               <Form.Label>Surname</Form.Label>
@@ -184,36 +210,18 @@ const LandingPage = () => {
           <p><strong>Type:</strong> {selectedHotel?.hotelType || 'N/A'}</p>
           <p><strong>Phone:</strong> {selectedHotel?.phone || 'N/A'}</p>
           <p><strong>Description:</strong> {selectedHotel?.description || 'N/A'}</p>
+          <p><strong>Rating:</strong> {selectedHotel?.rating || 'N/A'}</p>
 
           <h5>Gallery</h5>
           <div className="hotel-gallery">
             {selectedHotel?.imageUrls.map((url, index) => (
-              <img key={index} src={url} alt={`Gallery ${index}`} style={{ width: '100%', height: '150px', objectFit: 'cover', margin: '5px' }} />
+              <img key={index} src={url} alt={`Gallery ${index}`} style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
             ))}
           </div>
-
-          <div className="share-buttons">
-            <FacebookShareButton url={`http://your-website.com/hotels/${selectedHotel?.id}`} quote={selectedHotel?.name}>
-              <FacebookIcon size={32} round={true} />
-            </FacebookShareButton>
-            <WhatsappShareButton url={`http://your-website.com/hotels/${selectedHotel?.id}`} title={selectedHotel?.name}>
-              <WhatsappIcon size={32} round={true} />
-            </WhatsappShareButton>
-          </div>
-
-          <Rating
-            count={5}
-            onChange={(rating) => setUserRating(rating)}
-            size={24}
-            activeColor="#ffd700"
-          />
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseDetailsModal}>
             Close
-          </Button>
-          <Button variant="primary" onClick={() => handleBook(selectedHotel)}>
-            Book Now
           </Button>
         </Modal.Footer>
       </Modal>

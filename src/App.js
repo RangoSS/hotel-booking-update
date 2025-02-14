@@ -15,6 +15,7 @@ import Add_hotel from "./pages/Hotel/Add_hotel";
 
 import Landing_page from "./pages/home/Landing_page";
 
+
 function App() {
   const { darkMode } = useContext(DarkModeContext);
   const { currentUser } = useContext(AuthContext);
