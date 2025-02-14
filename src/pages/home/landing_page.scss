@@ -1,0 +1,80 @@
+.landing-page {
+    padding: 2rem;
+    background-color: #f8f9fa; // Light background
+  
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 2.5rem;
+      color: #343a40; // Dark text
+    }
+  
+    .hotel-cards-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center; // Center the cards
+      gap: 1rem; // Space between cards
+    }
+  
+    .hotel-card {
+      border: 1px solid #ced4da; // Card border
+      border-radius: 0.5rem; // Rounded corners
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); // Shadow effect
+      transition: transform 0.2s; // Smooth hover effect
+  
+      &:hover {
+        transform: translateY(-5px); // Lift effect on hover
+      }
+  
+      .card-img-top {
+        height: 200px; // Fixed height for images
+        object-fit: cover; // Cover the card
+        border-top-left-radius: 0.5rem; // Rounded corners
+        border-top-right-radius: 0.5rem; // Rounded corners
+      }
+  
+      .card-body {
+        display: flex;
+        flex-direction: column; // Stack elements vertically
+        align-items: flex-start; // Align items to the start
+        padding: 1rem;
+  
+        .btn {
+          margin: 0.5rem 0; // Space between buttons
+        }
+      }
+    }
+  
+    .hotel-gallery {
+      position: fixed; // Fixed position for gallery
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.9); // White background with transparency
+      padding: 2rem;
+      z-index: 1000; // Bring it above other content
+      overflow-y: auto; // Scroll if too many images
+  
+      h2 {
+        text-align: center;
+        margin-bottom: 1.5rem;
+      }
+  
+      .gallery-images {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center; // Center the images
+        gap: 1rem; // Space between images
+  
+        .gallery-image {
+          width: 100px; // Fixed width for gallery images
+          height: 100px; // Fixed height for gallery images
+          object-fit: cover; // Cover the container
+          border-radius: 0.5rem; // Rounded corners
+        }
+      
+      }
+    }
+  }
+  
