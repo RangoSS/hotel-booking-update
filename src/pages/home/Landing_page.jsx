@@ -84,18 +84,18 @@ const LandingPage = () => {
       navigate('/login');
       return;
     }
-
+  
     try {
       const userRef = doc(db, 'users', currentUser.uid);
       const userSnap = await getDoc(userRef);
-
+  
       if (!userSnap.exists()) {
         alert('User details not found. Please update your profile.');
         return;
       }
-
+  
       const userData = userSnap.data();
-
+  
       const bookingData = {
         userId: currentUser.uid,
         username: userData.username || '',
@@ -107,10 +107,15 @@ const LandingPage = () => {
         checkOutDate,
         numOfRooms,
         totalPrice,
+        timestamp: new Date().toISOString(),  // Store the timestamp
       };
-
-      await setDoc(doc(db, 'bookings', `${currentUser.uid}_${selectedHotel.id}_${Date.now()}`), bookingData);
-
+  
+      // Save to localStorage
+      localStorage.setItem('bookingData', JSON.stringify(bookingData));
+  
+      // Optionally, you can also save it to Firestore
+      //await setDoc(doc(db, 'bookings', `${currentUser.uid}_${selectedHotel.id}_${Date.now()}`), bookingData);
+  
       alert('Successfully booked! You can add more.');
       handleCloseBookingModal();
     } catch (error) {
