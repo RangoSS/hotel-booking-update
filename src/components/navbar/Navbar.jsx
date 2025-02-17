@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import "./navbar.scss";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import LanguageOutlinedIcon from "@mui/icons-material/LanguageOutlined";
@@ -7,30 +7,47 @@ import FullscreenExitOutlinedIcon from "@mui/icons-material/FullscreenExitOutlin
 import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 import ChatBubbleOutlineOutlinedIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import ListOutlinedIcon from "@mui/icons-material/ListOutlined";
+import BookOnlineIcon from "@mui/icons-material/BookOnline"; // Booking Icon
 import { DarkModeContext } from "../../context/darkModeContext";
-import { useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
-import CheckoutForm from "../CheckoutForm"; // Assume this is the component that handles Stripe payment
+import CheckoutForm from "../CheckoutForm";
 import { setDoc, doc } from "firebase/firestore";
-import { db } from "../../firebase"; // Assuming firebase.js is configured
+import { db } from "../../firebase"; // Firebase configuration
+import Modal from "react-modal"; // Import modal library
+
+// Modal Styles
+const modalStyles = {
+  content: {
+    width: "50%",
+    margin: "auto",
+    padding: "20px",
+    borderRadius: "10px",
+    background: "#fff",
+  },
+  overlay: {
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+};
+
+Modal.setAppElement("#root"); // Ensure accessibility
 
 const Navbar = () => {
   const { dispatch } = useContext(DarkModeContext);
   const navigate = useNavigate();
-
   const [bookingData, setBookingData] = useState(null);
   const [stripePromise, setStripePromise] = useState(null);
+  const [modalIsOpen, setModalIsOpen] = useState(false);
 
-  // Get the current user from localStorage
   const currentUser = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
+    // Stripe setup
     const stripe = loadStripe(process.env.STRIPE_PUBLIC_KEY); // Your public Stripe key
     setStripePromise(stripe);
 
-    // Fetch booking data from localStorage
+    // Fetch the booking data from localStorage
     const storedBookingData = JSON.parse(localStorage.getItem("bookingData"));
     if (storedBookingData && storedBookingData.userId === currentUser?.uid) {
       setBookingData(storedBookingData);
@@ -38,7 +55,6 @@ const Navbar = () => {
   }, [currentUser]);
 
   const handleLogout = () => {
-    // Clear user data and booking data from local storage
     localStorage.removeItem("user");
     localStorage.removeItem("bookingData");
     navigate("/login");
@@ -50,25 +66,22 @@ const Navbar = () => {
   };
 
   const handleDeleteBooking = () => {
-    // Delete booking data from localStorage and update the state
     localStorage.removeItem("bookingData");
     setBookingData(null);
   };
 
   const handlePaymentSuccess = async (paymentDetails) => {
-    // Assuming paymentDetails contain successful payment information
     if (currentUser && bookingData) {
       try {
         await setDoc(doc(db, 'bookings', `${currentUser.uid}_${bookingData.hotelId}_${Date.now()}`), {
           ...bookingData,
           paymentDetails: paymentDetails,
         });
-        alert('Payment successful, booking info saved!');
-        // Optionally, clear the booking data after successful payment
+        alert("Payment successful, booking info saved!");
         handleDeleteBooking();
       } catch (error) {
         console.error("Error saving payment info:", error);
-        alert('There was an error processing your payment.');
+        alert("There was an error processing your payment.");
       }
     }
   };
@@ -87,10 +100,7 @@ const Navbar = () => {
             English
           </div>
           <div className="item">
-            <DarkModeOutlinedIcon
-              className="icon"
-              onClick={() => dispatch({ type: "TOGGLE" })}
-            />
+            <DarkModeOutlinedIcon className="icon" onClick={() => dispatch({ type: "TOGGLE" })} />
           </div>
           <div className="item">
             <FullscreenExitOutlinedIcon className="icon" />
@@ -107,7 +117,12 @@ const Navbar = () => {
             <ListOutlinedIcon className="icon" />
           </div>
 
-          {/* Display login button if no user is logged in */}
+          <div className="item" onClick={() => setModalIsOpen(true)}>
+            <BookOnlineIcon className="icon" />
+            {bookingData && <div className="counter">1</div>}
+          </div>
+
+          {/* Show username and logout if logged in */}
           {currentUser ? (
             <div className="item logme">
               <span className="username">{currentUser.username}</span>
@@ -123,21 +138,21 @@ const Navbar = () => {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Display cart if bookingData exists */}
-        {bookingData && (
-          <div className="cart">
-            <h3>Booking Details</h3>
-            <div className="cart-details">
-              <p>Hotel ID: {bookingData.hotelId}</p>
-              <p>Check-In Date: {new Date(bookingData.checkInDate).toLocaleDateString()}</p>
-              <p>Check-Out Date: {new Date(bookingData.checkOutDate).toLocaleDateString()}</p>
-              <p>Rooms: {bookingData.numOfRooms}</p>
-              <p>Total Price: ${bookingData.totalPrice}</p>
-              <button onClick={handleDeleteBooking}>Delete Booking</button>
-            </div>
+      {/* Booking Modal */}
+      <Modal isOpen={modalIsOpen} onRequestClose={() => setModalIsOpen(false)} style={modalStyles}>
+        <h2>Your Bookings</h2>
+        {bookingData ? (
+          <div className="cart-details">
+            <p><strong>Hotel:</strong> {bookingData.hotelId}</p>
+            <p><strong>Check-In:</strong> {new Date(bookingData.checkInDate).toLocaleDateString()}</p>
+            <p><strong>Check-Out:</strong> {new Date(bookingData.checkOutDate).toLocaleDateString()}</p>
+            <p><strong>Rooms:</strong> {bookingData.numOfRooms}</p>
+            <p><strong>Total Price:</strong> ${bookingData.totalPrice}</p>
+            <button onClick={handleDeleteBooking}>Delete</button>
 
-            {/* Payment Section using Stripe */}
+            {/* Stripe Payment */}
             <div className="payment-section">
               {stripePromise && (
                 <Elements stripe={stripePromise}>
@@ -149,8 +164,11 @@ const Navbar = () => {
               )}
             </div>
           </div>
+        ) : (
+          <p>No bookings found.</p>
         )}
-      </div>
+        <button onClick={() => setModalIsOpen(false)}>Close</button>
+      </Modal>
     </div>
   );
 };
