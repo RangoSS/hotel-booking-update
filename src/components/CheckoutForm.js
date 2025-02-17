@@ -7,6 +7,23 @@ const CheckoutForm = ({ bookingDetails, onPaymentSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // State to hold the bank details
+  const [bankDetails, setBankDetails] = useState({
+    accountNumber: "",
+    branch: "",
+    bankName: "",
+  });
+
+  // Handle input changes for bank details
+  const handleBankInputChange = (e) => {
+    const { name, value } = e.target;
+    setBankDetails((prevDetails) => ({
+      ...prevDetails,
+      [name]: value,
+    }));
+  };
+
+  // Handle form submission
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -18,7 +35,7 @@ const CheckoutForm = ({ bookingDetails, onPaymentSuccess }) => {
       return;
     }
 
-    // Create a payment method
+    // Create a payment method using Stripe
     const { error, paymentMethod } = await stripe.createPaymentMethod({
       type: "card",
       card: elements.getElement(CardElement),
@@ -30,12 +47,14 @@ const CheckoutForm = ({ bookingDetails, onPaymentSuccess }) => {
       return;
     }
 
-    // Simulate payment processing (Replace this with actual API call if needed)
+    // Simulate payment processing (replace with actual API call as necessary)
     setTimeout(() => {
+      // Pass both payment details and bank details to the onPaymentSuccess handler
       onPaymentSuccess({
         id: paymentMethod.id,
         amount: bookingDetails.totalPrice,
         status: "success",
+        bankDetails: bankDetails, // Include the bank details
       });
 
       alert("Payment successful!");
@@ -49,6 +68,44 @@ const CheckoutForm = ({ bookingDetails, onPaymentSuccess }) => {
       <form onSubmit={handleSubmit}>
         <CardElement />
         {error && <p className="error">{error}</p>}
+
+        {/* Bank Details Inputs */}
+        <div className="bank-details">
+          <label>
+            Bank Name
+            <input
+              type="text"
+              name="bankName"
+              value={bankDetails.bankName}
+              onChange={handleBankInputChange}
+              placeholder="e.g., Standard Bank, FNB"
+              required
+            />
+          </label>
+          <label>
+            Branch
+            <input
+              type="text"
+              name="branch"
+              value={bankDetails.branch}
+              onChange={handleBankInputChange}
+              placeholder="e.g., Branch 101"
+              required
+            />
+          </label>
+          <label>
+            Account Number
+            <input
+              type="text"
+              name="accountNumber"
+              value={bankDetails.accountNumber}
+              onChange={handleBankInputChange}
+              placeholder="e.g., 1234567890"
+              required
+            />
+          </label>
+        </div>
+
         <button type="submit" disabled={!stripe || loading}>
           {loading ? "Processing..." : `Pay $${bookingDetails.totalPrice}`}
         </button>
